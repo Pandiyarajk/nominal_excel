@@ -1,0 +1,164 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                                                                              ║
+║                    📊 EXCEL VIEWER & EDITOR PRO                              ║
+║                                                                              ║
+║                         Quick Getting Started Guide                          ║
+║                                                                              ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+
+🚀 QUICK START (3 STEPS)
+═══════════════════════════════════════════════════════════════════════════════
+
+1. INSTALL DEPENDENCIES
+   ─────────────────────
+   pip install -r requirements.txt
+
+   (On Linux/Ubuntu with externally managed Python:)
+   pip install --break-system-packages -r requirements.txt
+
+
+2. RUN THE APPLICATION
+   ───────────────────
+   streamlit run excel_app.py
+
+   (Or use the provided script:)
+   ./run_app.sh
+
+
+3. OPEN YOUR BROWSER
+   ─────────────────
+   The app will open at: http://localhost:8501
+
+
+📊 TRY SAMPLE DATA
+═══════════════════════════════════════════════════════════════════════════════
+
+Three sample Excel files are included:
+
+  • sales_data.xlsx      - 100 sales transactions (2 sheets)
+  • employee_data.xlsx   - 50 employee records (2 sheets)
+  • inventory_data.xlsx  - 200 products (3 sheets)
+
+Upload any of these to explore all features!
+
+
+✨ KEY FEATURES
+═══════════════════════════════════════════════════════════════════════════════
+
+  ✓ Load Excel (.xlsx, .xls) and CSV files
+  ✓ Edit cells directly in interactive grid
+  ✓ Add/delete rows and columns dynamically
+  ✓ Search and filter data across sheets
+  ✓ Analytics with charts and statistics
+  ✓ Multiple sheet management
+  ✓ Export to Excel or CSV
+  ✓ Sort, rename, and reorganize data
+  ✓ Beautiful, modern UI
+
+
+🎯 BASIC WORKFLOW
+═══════════════════════════════════════════════════════════════════════════════
+
+1. Upload File
+   └─ Click "Browse files" in sidebar
+   └─ Select Excel or CSV file
+   └─ Wait for success message
+
+2. View & Edit
+   └─ Go to "Edit Data" tab
+   └─ Click cells to edit
+   └─ Click "Save Changes"
+
+3. Operations
+   └─ Use "Operations" tab
+   └─ Add/delete rows/columns
+   └─ Sort by any column
+
+4. Search & Filter
+   └─ Use "Search & Filter" tab
+   └─ Search text or filter by values
+   └─ Save filtered results
+
+5. Analyze
+   └─ Go to "Analytics" tab
+   └─ View statistics and charts
+   └─ Explore correlations
+
+6. Export
+   └─ Click "Download Excel" in sidebar
+   └─ Save your changes
+
+
+💡 PRO TIPS
+═══════════════════════════════════════════════════════════════════════════════
+
+  • Make all edits first, then "Save Changes" once
+  • Use sample files to explore features
+  • Download a backup before major changes
+  • Use filters to work with large datasets
+  • Check the Info tab for data structure details
+
+
+📁 PROJECT FILES
+═══════════════════════════════════════════════════════════════════════════════
+
+  excel_app.py         - Main application (run this)
+  requirements.txt     - Python dependencies
+  run_app.sh          - Quick launch script
+  README.md           - Full documentation
+  QUICKSTART.md       - Detailed quick start
+  PROJECT_SUMMARY.md  - Technical overview
+  CHANGELOG.md        - Version history
+
+
+📚 DOCUMENTATION
+═══════════════════════════════════════════════════════════════════════════════
+
+  README.md           - Comprehensive feature documentation
+  QUICKSTART.md       - Step-by-step usage guide
+  PROJECT_SUMMARY.md  - Architecture and technical details
+  CHANGELOG.md        - Version history and updates
+
+
+🐛 TROUBLESHOOTING
+═══════════════════════════════════════════════════════════════════════════════
+
+  App won't start?
+  └─ Check dependencies are installed
+  └─ Verify port 8501 is available
+  └─ Try: streamlit run excel_app.py --server.port 8502
+
+  File won't upload?
+  └─ Check file format (.xlsx, .xls, .csv)
+  └─ Verify file isn't corrupted
+  └─ Try with sample files first
+
+  Changes not saving?
+  └─ Click "Save Changes" button
+  └─ Check browser console (F12)
+  └─ Refresh and try again
+
+
+📞 SUPPORT
+═══════════════════════════════════════════════════════════════════════════════
+
+  • Check README.md for detailed docs
+  • Review QUICKSTART.md for usage examples
+  • Examine sample files for reference
+  • Read code comments for technical details
+
+
+🎉 YOU'RE READY!
+═══════════════════════════════════════════════════════════════════════════════
+
+Run this command to start:
+
+    streamlit run excel_app.py
+
+Then open http://localhost:8501 in your browser!
+
+
+═══════════════════════════════════════════════════════════════════════════════
+        Built with ❤️ using Streamlit, Pandas, and Python
+═══════════════════════════════════════════════════════════════════════════════
