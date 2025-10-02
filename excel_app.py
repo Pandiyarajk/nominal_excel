@@ -5,6 +5,8 @@ from io import BytesIO
 import plotly.express as px
 import numpy as np
 from datetime import datetime
+import json
+import os
 
 # Page configuration
 st.set_page_config(
@@ -49,6 +51,66 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+def get_recent_files_path():
+    """Get the path to the recent files storage file"""
+    return os.path.join(os.path.dirname(__file__), 'recent_files.json')
+
+def get_file_paths_path():
+    """Get the path to the file paths storage file"""
+    return os.path.join(os.path.dirname(__file__), 'file_paths.json')
+
+def load_recent_files_from_storage():
+    """Load recent files from persistent storage"""
+    try:
+        recent_files_path = get_recent_files_path()
+        if os.path.exists(recent_files_path):
+            with open(recent_files_path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        return []
+    except Exception:
+        return []
+
+def save_recent_files_to_storage(recent_files):
+    """Save recent files to persistent storage"""
+    try:
+        recent_files_path = get_recent_files_path()
+        with open(recent_files_path, 'w', encoding='utf-8') as f:
+            json.dump(recent_files, f)
+    except Exception:
+        pass  # Silently fail if we can't save
+
+def load_file_paths_from_storage():
+    """Load file paths from persistent storage"""
+    try:
+        file_paths_path = get_file_paths_path()
+        if os.path.exists(file_paths_path):
+            with open(file_paths_path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        return {}
+    except Exception:
+        return {}
+
+def save_file_paths_to_storage(file_paths):
+    """Save file paths to persistent storage"""
+    try:
+        file_paths_path = get_file_paths_path()
+        with open(file_paths_path, 'w', encoding='utf-8') as f:
+            json.dump(file_paths, f)
+    except Exception:
+        pass  # Silently fail if we can't save
+
+def get_file_path_by_name(file_name):
+    """Get file path by file name from storage"""
+    file_paths = load_file_paths_from_storage()
+    file_info = file_paths.get(file_name)
+    if file_info and isinstance(file_info, dict):
+        # Handle old format with type/value structure
+        return file_info.get("value") if file_info.get("type") == "path" else None
+    elif file_info and isinstance(file_info, str):
+        # Handle new simplified format
+        return file_info
+    return None
+
 # Initialize session state
 if 'df_dict' not in st.session_state:
     st.session_state.df_dict = {}
@@ -62,6 +124,111 @@ if 'history' not in st.session_state:
     st.session_state.history = []
 if 'redo_stack' not in st.session_state:
     st.session_state.redo_stack = []
+if 'recent_files' not in st.session_state:
+    st.session_state.recent_files = []
+
+def migrate_old_data():
+    """Migrate old format data to new format"""
+    try:
+        recent_files = load_recent_files_from_storage()
+        file_paths = load_file_paths_from_storage()
+        
+        # Check if we need to migrate
+        needs_migration = any(isinstance(item, dict) for item in recent_files)
+        
+        if needs_migration:
+            # Migrate recent files
+            migrated_files = []
+            for item in recent_files:
+                if isinstance(item, dict):
+                    # Old format: {"name": "file.xlsx", "path": "path"}
+                    file_name = item.get("name", "")
+                    file_path = item.get("path")
+                    if file_name:
+                        migrated_files.append(file_name)
+                        if file_path:
+                            file_paths[file_name] = file_path
+                elif isinstance(item, str):
+                    # New format: "file.xlsx"
+                    migrated_files.append(item)
+            
+            # Save migrated data
+            save_recent_files_to_storage(migrated_files)
+            save_file_paths_to_storage(file_paths)
+            
+    except Exception:
+        pass  # Silently fail if migration doesn't work
+
+def initialize_recent_files():
+    """Initialize recent files from storage if not already loaded"""
+    if not st.session_state.recent_files:
+        # First, try to migrate old data
+        migrate_old_data()
+        
+        # Then load the data
+        recent_files = load_recent_files_from_storage()
+        st.session_state.recent_files = recent_files
+
+def add_to_recent_files(file_name, file_path):
+    """Add a file to the recent files list and store its path (only for file system files)"""
+    if not file_path:
+        return  # Don't add files without paths
+    
+    recent_files = load_recent_files_from_storage()
+    
+    # Check if file already exists (by name)
+    if file_name in recent_files:
+        # Remove existing entry
+        recent_files.remove(file_name)
+    
+    # Add to top
+    recent_files.insert(0, file_name)
+    
+    # Keep only the last 10 files
+    if len(recent_files) > 10:
+        recent_files = recent_files[:10]
+    
+    # Save recent files
+    save_recent_files_to_storage(recent_files)
+    
+    # Store file path
+    file_paths = load_file_paths_from_storage()
+    file_paths[file_name] = file_path
+    save_file_paths_to_storage(file_paths)
+    
+    # Update session state
+    st.session_state.recent_files = recent_files
+
+def remove_from_recent_files(file_name):
+    """Remove a file from the recent files list"""
+    recent_files = load_recent_files_from_storage()
+    if file_name in recent_files:
+        recent_files.remove(file_name)
+        save_recent_files_to_storage(recent_files)
+        st.session_state.recent_files = recent_files
+
+def clear_recent_files():
+    """Clear all recent files"""
+    save_recent_files_to_storage([])
+    st.session_state.recent_files = []
+
+def load_file_from_path(file_path):
+    """Load Excel file from file path"""
+    try:
+        if file_path.endswith('.csv'):
+            df_dict = {'Sheet1': pd.read_csv(file_path)}
+            sheet_names = ['Sheet1']
+        else:
+            excel_file = pd.ExcelFile(file_path)
+            df_dict = {}
+            for sheet_name in excel_file.sheet_names:
+                df_dict[sheet_name] = pd.read_excel(file_path, sheet_name=sheet_name)
+            sheet_names = excel_file.sheet_names
+        
+        return df_dict, sheet_names
+    except Exception as e:
+        st.error(f"Error loading file from path: {str(e)}")
+        return None, None
 
 def load_excel_file(uploaded_file):
     """Load Excel file and return dictionary of DataFrames for each sheet"""
@@ -83,8 +250,8 @@ def save_to_excel(df_dict, filename="edited_file.xlsx"):
     output = BytesIO()
     
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        for sheet_name, df in df_dict.items():
-            df.to_excel(writer, sheet_name=sheet_name, index=False)
+        for sheet_name, dataframe in df_dict.items():
+            dataframe.to_excel(writer, sheet_name=sheet_name, index=False)
     
     output.seek(0)
     return output
@@ -163,12 +330,118 @@ st.markdown('<div class="main-header">📊 Excel Viewer & Editor Pro</div>', uns
 with st.sidebar:
     st.header("📁 File Management")
     
+    # Initialize recent files
+    initialize_recent_files()
+    
+    # Recent Files Section
+    if st.session_state.recent_files:
+        st.subheader("📋 Recent Files")
+        
+        # Create display names for selectbox
+        recent_file_names = []
+        for item in st.session_state.recent_files:
+            # Handle both old and new data formats
+            if isinstance(item, dict):
+                # Old format: extract name
+                file_name = item.get("name", "Unknown")
+            elif isinstance(item, str):
+                # New format: use directly
+                file_name = item
+            else:
+                # Skip invalid items
+                continue
+                
+            # Get file path from storage
+            file_path = get_file_path_by_name(file_name)
+            
+            if file_path:
+                recent_file_names.append(f"📁 {file_name} ({file_path})")
+            else:
+                # Skip files without paths (shouldn't happen now, but for safety)
+                continue
+        
+        # Display recent files with selection
+        selected_recent_file = st.selectbox(
+            "Select from recent files",
+            ["None"] + recent_file_names,
+            help="Choose a recently opened file"
+        )
+        
+        # Legend
+        st.caption("📁 = File system file (can be opened directly)")
+        
+        if selected_recent_file != "None":
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                if st.button("📂 Open Selected File", key="open_recent"):
+                    # Extract file name from selected option
+                    selected_index = recent_file_names.index(selected_recent_file)
+                    selected_item = st.session_state.recent_files[selected_index]
+                    
+                    # Handle both old and new data formats
+                    if isinstance(selected_item, dict):
+                        selected_file_name = selected_item.get("name", "Unknown")
+                    elif isinstance(selected_item, str):
+                        selected_file_name = selected_item
+                    else:
+                        st.error("Invalid file data format")
+                        st.rerun()
+                    
+                    # Get file path from storage
+                    file_path = get_file_path_by_name(selected_file_name)
+                    
+                    if file_path:
+                        # Try to open the file from path
+                        if os.path.exists(file_path):
+                            try:
+                                df_dict, sheet_names = load_file_from_path(file_path)
+                                if df_dict:
+                                    st.session_state.df_dict = df_dict
+                                    st.session_state.current_sheet = sheet_names[0]
+                                    st.session_state.file_name = selected_file_name
+                                    st.session_state.history = []
+                                    st.session_state.redo_stack = []
+                                    st.success(f"✅ Opened: {selected_file_name}")
+                                    st.rerun()
+                                else:
+                                    st.error("Failed to load file from path")
+                            except Exception as e:
+                                st.error(f"Error opening file: {str(e)}")
+                        else:
+                            st.error(f"File not found: {file_path}")
+                    else:
+                        st.error("File path not available")
+            with col2:
+                if st.button("🗑️", help="Remove from recent files", key="remove_recent"):
+                    selected_index = recent_file_names.index(selected_recent_file)
+                    selected_item = st.session_state.recent_files[selected_index]
+                    
+                    # Handle both old and new data formats
+                    if isinstance(selected_item, dict):
+                        selected_file_name = selected_item.get("name", "Unknown")
+                    elif isinstance(selected_item, str):
+                        selected_file_name = selected_item
+                    else:
+                        st.error("Invalid file data format")
+                        st.rerun()
+                        remove_from_recent_files(selected_file_name)
+                        st.rerun()
+        
+        # Clear all recent files button
+        if st.button("🧹 Clear All Recent Files", key="clear_recent"):
+            clear_recent_files()
+            st.rerun()
+        
+        st.divider()
+    
     # File upload
     uploaded_file = st.file_uploader(
         "Upload Excel File",
         type=['xlsx', 'xls', 'csv'],
         help="Upload an Excel or CSV file to view and edit"
     )
+    
+    
     
     if uploaded_file is not None:
         # Load file if new or different
@@ -181,7 +454,46 @@ with st.sidebar:
                 st.session_state.file_name = uploaded_file.name
                 st.session_state.history = []
                 st.session_state.redo_stack = []
+                # Don't add uploaded files to recent files since they can't be reopened
                 st.success(f"✅ Loaded: {uploaded_file.name}")
+    
+    # File path input for opening files from file system
+    st.divider()
+    st.markdown("**💡 Open from file system:**")
+    
+    file_path = st.text_input(
+        "Enter file path",
+        placeholder="C:\\path\\to\\your\\file.xlsx",
+        help="Enter the full path to an Excel or CSV file. Files opened this way will be added to recent files.",
+        value=st.session_state.get('quick_file_path', '')
+    )
+    
+    # Clear quick file path after use
+    if 'quick_file_path' in st.session_state:
+        del st.session_state.quick_file_path
+    
+    if file_path and st.button("📂 Open from Path", key="open_path"):
+        if os.path.exists(file_path):
+            try:
+                df_dict, sheet_names = load_file_from_path(file_path)
+                if df_dict:
+                    st.session_state.df_dict = df_dict
+                    st.session_state.current_sheet = sheet_names[0]
+                    st.session_state.file_name = os.path.basename(file_path)
+                    st.session_state.history = []
+                    st.session_state.redo_stack = []
+                    # Add to recent files with path (only file system files)
+                    add_to_recent_files(os.path.basename(file_path), file_path)
+                    st.success(f"✅ Opened: {os.path.basename(file_path)}")
+                    st.rerun()
+                else:
+                    st.error("Failed to load file from path")
+            except Exception as e:
+                st.error(f"Error opening file: {str(e)}")
+        else:
+            st.error(f"File not found: {file_path}")
+    
+    st.divider()
     
     # Sheet selector
     if st.session_state.df_dict:
@@ -222,29 +534,34 @@ with st.sidebar:
         
         st.divider()
         
-        # Download options
-        st.header("💾 Export")
-        
-        output_file = save_to_excel(st.session_state.df_dict, st.session_state.file_name)
-        
-        st.download_button(
-            label="📥 Download Excel",
-            data=output_file,
-            file_name=f"edited_{st.session_state.file_name}",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True
-        )
-        
-        # CSV export for current sheet
-        if st.session_state.current_sheet:
-            csv = st.session_state.df_dict[st.session_state.current_sheet].to_csv(index=False)
+        # Download options - only show for file system files
+        file_path = get_file_path_by_name(st.session_state.file_name)
+        if file_path:
+            st.header("💾 Export")
+            
+            output_file = save_to_excel(st.session_state.df_dict, st.session_state.file_name)
+            
             st.download_button(
-                label="📄 Download as CSV",
-                data=csv,
-                file_name=f"{st.session_state.current_sheet}.csv",
-                mime="text/csv",
+                label="📥 Download Excel",
+                data=output_file,
+                file_name=f"edited_{st.session_state.file_name}",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True
             )
+            
+            # CSV export for current sheet
+            if st.session_state.current_sheet:
+                csv = st.session_state.df_dict[st.session_state.current_sheet].to_csv(index=False)
+                st.download_button(
+                    label="📄 Download as CSV",
+                    data=csv,
+                    file_name=f"{st.session_state.current_sheet}.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
+        else:
+            # For uploaded files, show a message that export is not available
+            st.info("💡 **Export not available for uploaded files.** To export your changes, please open the file from your file system using the file path input above.")
 
 # Main content area
 if st.session_state.df_dict and st.session_state.current_sheet:
@@ -273,8 +590,14 @@ if st.session_state.df_dict and st.session_state.current_sheet:
         
         # Data editor with editing capabilities
         if not df.empty:
+            # Convert datetime columns to strings for data editor compatibility
+            df_for_editor = df.copy()
+            for col in df_for_editor.columns:
+                if df_for_editor[col].dtype == 'datetime64[ns]':
+                    df_for_editor[col] = df_for_editor[col].dt.strftime('%Y-%m-%d %H:%M:%S')
+            
             edited_df = st.data_editor(
-                df,
+                df_for_editor,
                 use_container_width=True,
                 num_rows="dynamic",
                 key=f"editor_{st.session_state.current_sheet}",
@@ -285,7 +608,17 @@ if st.session_state.df_dict and st.session_state.current_sheet:
             col1, col2 = st.columns([1, 5])
             with col1:
                 if st.button("💾 Save Changes", type="primary"):
-                    st.session_state.df_dict[st.session_state.current_sheet] = edited_df
+                    # Convert string dates back to datetime if original column was datetime
+                    edited_df_final = edited_df.copy()
+                    for col in edited_df_final.columns:
+                        if df[col].dtype == 'datetime64[ns]':
+                            try:
+                                edited_df_final[col] = pd.to_datetime(edited_df_final[col])
+                            except:
+                                # If conversion fails, keep as string
+                                pass
+                    
+                    st.session_state.df_dict[st.session_state.current_sheet] = edited_df_final
                     st.success("✅ Changes saved!")
                     st.rerun()
         else:
@@ -550,7 +883,6 @@ if st.session_state.df_dict and st.session_state.current_sheet:
         else:
             st.info("Sheet is empty")
 
-else:
     # Welcome screen
     st.markdown("""
     ## Welcome to Excel Viewer & Editor Pro! 🎉
@@ -609,6 +941,7 @@ else:
         st.session_state.df_dict = sample_data
         st.session_state.current_sheet = 'Sales'
         st.session_state.file_name = 'sample_data.xlsx'
+        # Don't add sample data to recent files since it's not a real file
         st.success("✅ Sample data loaded!")
         st.rerun()
 
